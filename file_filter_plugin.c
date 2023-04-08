@@ -1,22 +1,61 @@
-#include <glib-object.h>
-#include <thunarx/thunarx.h>
-#include <gtk/gtk.h>
-#include <gio/gio.h>
+//#include <stdio.h>
+//#include <glib-object.h>
+//#include <thunarx/thunarx.h>
+//#include <gtk/gtk.h>
+//#include <gio/gio.h>
 
-/* Implement a custom menu provider */
-typedef struct _MyThunarPlugin MyThunarPlugin;
-struct _MyThunarPlugin {
-  GObject parent;
-};
+#include "file_filter_plugin.h"
 
-typedef struct _MyThunarPluginClass MyThunarPluginClass;
-struct _MyThunarPluginClass {
-  GObjectClass parent_class;
-};
+
+/* Plugin initialization and shutdown functions */
+G_MODULE_EXPORT void thunar_extension_initialize (ThunarxProviderPlugin *plugin);
+G_MODULE_EXPORT void thunar_extension_shutdown (void);
+G_MODULE_EXPORT void thunar_extension_list_types (const GType** types, gint* n_types);
+
+static GType type_list[1];
+
+void thunar_extension_initialize (ThunarxProviderPlugin *plugin) {
+  const gchar* mismatch;
+
+  /* verify that the thunarx versions are compatible */
+  mismatch = thunarx_check_version (THUNARX_MAJOR_VERSION, THUNARX_MINOR_VERSION, THUNARX_MICRO_VERSION);
+  if (G_UNLIKELY (mismatch != NULL)) {
+      g_warning ("Version mismatch: %s", mismatch);
+      return;
+  }
+
+  #ifdef G_ENABLE_DEBUG
+  g_messgae("Initializing file_filter_plugin extension");
+  #endif
+
+  /* register types provided by the plugin */
+  my_thunar_plugin_register_type (G_TYPE_MODULE (plugin));
+
+  /* setup the plugin provider type list */
+  type_list[0] = my_thunar_plugin_get_type ();
+}
+
+void thunar_extension_shutdown (void) {
+  // Perform any cleanup for your plugin here
+  #ifdef G_ENABLE_DEBUG
+  g_message("Shutting down file_filter_plugin plugin");
+  #endif
+}
+
+void thunar_extension_list_types (const GType **types, gint *n_types) {
+  *types = type_list;
+  *n_types = G_N_ELEMENTS (type_list);
+}
+
+
+
+///////
+
+
 
 static void my_thunar_plugin_menu_provider_init (ThunarxMenuProviderIface *iface);
 
-G_DEFINE_DYNAMIC_TYPE_EXTENDED (MyThunarPlugin, my_thunar_plugin, G_TYPE_OBJECT, 0,
+G_DEFINE_DYNAMIC_TYPE_EXTENDED (FileFilterProvider, my_thunar_plugin, G_TYPE_OBJECT, 0,
                                 THUNARX_IMPLEMENT_INTERFACE_DYNAMIC (THUNARX_TYPE_MENU_PROVIDER,
                                                                      my_thunar_plugin_menu_provider_init))
 
@@ -78,27 +117,7 @@ static GList *my_thunar_plugin_get_file_actions (ThunarxMenuProvider *menu_provi
 }
 
 static void my_thunar_plugin_menu_provider_init (ThunarxMenuProviderIface *iface) {
+  printf("my_thunar_plugin_menu_provider_init Initializing menu provider interface for plugin\n");
   iface->get_file_menu_items = my_thunar_plugin_get_file_actions;
 }
 
-/* Plugin initialization and shutdown functions */
-G_MODULE_EXPORT void thunar_extension_initialize (ThunarxProviderPlugin *plugin);
-G_MODULE_EXPORT void thunar_extension_shutdown (void);
-G_MODULE_EXPORT void thunar_extension_list_types (const GType **types, gint *n_types);
-
-static GType type_list[1];
-
-void thunar_extension_initialize (ThunarxProviderPlugin *plugin) {
-// Register the custom type
-my_thunar_plugin_register_type (G_TYPE_MODULE (plugin));
-type_list[0] = my_thunar_plugin_get_type ();
-}
-
-void thunar_extension_shutdown (void) {
-// Perform any cleanup for your plugin here
-}
-
-void thunar_extension_list_types (const GType **types, gint *n_types) {
-*types = type_list;
-*n_types = G_N_ELEMENTS (type_list);
-}
